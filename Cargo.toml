@@ -1,0 +1,9 @@
+[package]
+name = "relay"
+version = "0.1.0"
+edition = "2024"
+description = "A local-first control plane for visible, capped, and routed AI coding calls"
+license = "AGPL-3.0-only"
+readme = "README.md"
+
+[dependencies]
