@@ -2,10 +2,10 @@
 
 **See, cap, and route every AI coding call.**
 
-Korvo Relay is a local-first command-line tool for making AI coding costs visible and enforceable. It will meter provider usage, reject calls that could cross a hard spend cap, and route requests between compatible providers. Later releases will reduce paid context and deflect suitable work to local models.
+Korvo Relay is a local-first command-line tool for making AI coding costs visible and enforceable. Its v0.1 development build meters provider usage, rejects calls that could cross a hard spend cap, and routes requests through compatible adapters. Later releases will reduce paid context and deflect suitable work to local models.
 
 > [!IMPORTANT]
-> Relay is currently a pre-implementation project. This repository contains the initial Rust crate and the frozen v0.1–v0.3 product and architecture plan. The commands and configuration below describe the intended interfaces, not yet-released functionality.
+> Relay is under active development and has not been released. The v0.1 request, adapter, pricing, ledger, cap, and CLI path is implemented and tested locally. Bundled paid-model prices intentionally remain unverified, so `relay ask` fails closed until official prices and API model IDs are reviewed for release. See the [implementation tracker](ARCHITECTURE.md#implementation-tracker).
 
 ## Why Relay?
 
@@ -34,15 +34,16 @@ Version boundaries are deliberate. In particular, v0.1 will not include local mo
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for component responsibilities, contracts, data flow, storage, and release boundaries.
 
-## Planned experience
+## v0.1 development experience
 
-The target configuration is:
+Relay creates this configuration at `~/.relay/relay.toml` on first run:
 
 ```toml
 # ~/.relay/relay.toml
 [caps]
 daily_usd = 5.00
 monthly_usd = 50.00
+timezone = "UTC"
 
 [models]
 default = "openai:gpt-4o-mini"
@@ -50,15 +51,19 @@ think = "anthropic:claude-sonnet"
 
 [providers.openai]
 api_key_env = "OPENAI_API_KEY"
+
+[providers.anthropic]
+api_key_env = "ANTHROPIC_API_KEY"
 ```
 
-The planned v0.1 commands are:
+The implemented v0.1 commands are:
 
 ```console
 relay ask "Explain this function"
 relay ask --model think "Review this design"
 relay usage
-relay cap set
+relay cap show
+relay cap set --daily-usd 5.00 --monthly-usd 50.00
 relay models
 ```
 
@@ -83,16 +88,24 @@ Provider credentials will be read from configured environment variables and will
 
 ## Price data
 
-Model prices will be stored as user-updatable data rather than compiled into the binary. Prices shown in product examples are placeholders and must not be treated as current provider pricing. The implementation will fail closed when pricing is missing or invalid, and CI will eventually check price-data freshness.
+Model prices are stored in user-updatable `~/.relay/prices.json` rather than compiled into executable logic. Prices shown in product examples are placeholders and must not be treated as current provider pricing. The bundled development entries have `verified = false`; paid calls fail before credential lookup or network dispatch until an entry has official source provenance and is explicitly verified. A release must review prices and API model IDs, and CI will eventually check freshness.
 
 ## Development
 
-Relay is a Rust project using the 2024 edition. At this initial stage, the crate can be checked with:
+Relay is a Rust project using the 2024 edition. Build and check it with:
 
 ```bash
 cargo fmt --check
 cargo check
 cargo test
+```
+
+Try the local-only commands without provider credentials or network requests:
+
+```bash
+cargo run -- models
+cargo run -- cap show
+cargo run -- usage
 ```
 
 The first implementation milestone follows this strict order:
@@ -111,7 +124,7 @@ Please do not open a public issue containing API keys, source code from a privat
 
 ## Project status
 
-The v0.1–v0.3 scope is frozen for planning, but APIs may still change until the first release. The initial target is a fresh-install-to-first-metered-call experience of under five minutes once v0.1 is implemented.
+The v0.1–v0.3 scope is frozen, but APIs may still change until the first release. The v0.1 core path is implemented; release remains blocked on official price/model verification, reconciliation commands, expanded provider error conformance, and a credential-gated smoke test. The initial target remains a fresh-install-to-first-metered-call experience of under five minutes.
 
 ## License
 

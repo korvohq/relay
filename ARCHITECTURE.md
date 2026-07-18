@@ -4,7 +4,57 @@
 **Scope:** Frozen product plan for v0.1 through v0.3  
 **Implementation language:** Rust 2024 edition
 
-This document turns the Relay product specification into implementation boundaries and safety rules. It describes planned behavior; the current crate is still a minimal scaffold.
+This document turns the Relay product specification into implementation boundaries and safety rules. Planned behavior and verified implementation status are tracked separately below.
+
+## Implementation tracker
+
+**Last updated:** July 18, 2026
+
+Status meanings: ✅ implemented and covered by automated tests · 🟡 implemented in part or awaiting release validation · ⛔ release blocker · ⬜ not started.
+
+### v0.1 — See + Stop
+
+| Area | Status | Implemented evidence / remaining work |
+| --- | --- | --- |
+| Provider-neutral request/response types | ✅ | `src/request.rs`; normalized messages, usage, model, latency, metadata, and redacted raw response shape |
+| `ProviderAdapter` contract and registry | ✅ | `src/adapters/mod.rs`; chat capability, deterministic estimate, async completion, provider registry |
+| OpenAI adapter | 🟡 | Chat Completions transport, bounded timeout, usage normalization, and local mock conformance pass; credential-gated live smoke test and full error matrix remain |
+| Anthropic adapter | 🟡 | Messages transport, system-role translation, bounded timeout, usage normalization, and local mock conformance pass; credential-gated live smoke test and full error matrix remain |
+| External price catalog | 🟡 ⛔ | JSON loading, provenance fields, validation, verification gate, and user-local copy implemented; bundled entries intentionally remain `verified = false` until official prices/model IDs are reviewed |
+| Fixed-point money math | ✅ | Integer microdollars, exact decimal parsing, conservative rounding, negative/overflow rejection, and boundary tests |
+| SQLite ledger migration 1 | ✅ | Calls, price snapshots, reservations, indexes, WAL, full synchronous writes, busy timeout, UTC timestamps, configured timezone keys, and private file permissions |
+| Daily/monthly hard caps | ✅ | Atomic `BEGIN IMMEDIATE` reservation checks include completed spend plus active/pending reservations; exact-cap and refusal tests pass |
+| Multi-process reservation safety | ✅ | Concurrent SQLite reservation test proves the same remaining budget cannot be overbooked |
+| Zero-network cap refusal | ✅ | Injected-adapter test proves an at-cap request invokes transport zero times |
+| Ambiguous outcome safety | 🟡 | Dispatch transitions to a durable pending reservation before network I/O; confirmed 4xx responses release it; user-facing reconciliation/list/resolve commands remain |
+| Provider-reported final usage | ✅ | Successful remote responses settle actual input/output usage and snapshot prices into the ledger |
+| Configuration and secure local paths | ✅ | First-run `~/.relay` creation, `0600` files/`0700` directory on Unix, aliases, provider credential environment-variable names, caps, and persisted IANA timezone |
+| `relay ask` | 🟡 ⛔ | Full pre-flight → reservation → adapter → settlement path implemented; intentionally blocked by unverified bundled price entries until release pricing review |
+| `relay usage` | ✅ | Today/month totals, tokens, per-model costs, and outstanding reserved/pending amount |
+| `relay cap set/show` | ✅ | Explicit config update; no environment-variable cap override |
+| `relay models` | ✅ | Aliases, canonical models, API model IDs, context limits, prices, and verification state |
+| 80% soft warning | ✅ | Emitted after a successful call when daily or monthly completed spend reaches the threshold |
+| Streaming | ✅ | Explicitly rejected before reservation or transport in v0.1 |
+| Fresh-install first metered call under five minutes | ⬜ ⛔ | Must be measured after price verification and release installation packaging |
+
+### v0.2 — Shrink + Watch
+
+| Area | Status |
+| --- | --- |
+| Context minimizer, repo map, git relevance, and token budgets | ⬜ |
+| Tokens-saved accounting | ⬜ |
+| Read-only Copilot premium-request monitor | ⬜ |
+
+### v0.3 — Deflect
+
+| Area | Status |
+| --- | --- |
+| Local quantized model adapter and hardware detection | ⬜ |
+| Local embeddings and RAG index | ⬜ |
+| Deterministic tier router and validation escalation | ⬜ |
+| Savings report | ⬜ |
+
+Update this tracker only after the corresponding behavior exists and its verification command or test passes. A checked item describes repository state, not an aspiration.
 
 ## 1. Goals and constraints
 

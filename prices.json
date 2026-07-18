@@ -1,0 +1,20 @@
+{
+  "anthropic:claude-sonnet": {
+    "input_per_mtok": "3.00",
+    "output_per_mtok": "15.00",
+    "max_context": 200000,
+    "api_model": "claude-sonnet-4-5",
+    "verified": false,
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "verified_at": null
+  },
+  "openai:gpt-4o-mini": {
+    "input_per_mtok": "0.15",
+    "output_per_mtok": "0.60",
+    "max_context": 128000,
+    "api_model": "gpt-4o-mini",
+    "verified": false,
+    "source_url": "https://openai.com/api/pricing/",
+    "verified_at": null
+  }
+}
