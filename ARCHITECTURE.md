@@ -111,7 +111,7 @@ cost = input_tokens  * input_per_mtok  / 1,000,000
      + output_tokens * output_per_mtok / 1,000,000
 ```
 
-The database may expose a decimal cost as a numeric value for reporting, but cap comparisons use an integer fixed-point representation (for example, microdollars) or a decimal type. Rounding must be conservative during pre-flight estimation.
+The database stores `cost_microusd INTEGER` as the authoritative monetary value from migration 1. Cap comparisons and aggregates use integer microdollars; the CLI converts them to decimal dollars for display. Rounding must be conservative during pre-flight estimation. A floating-point dollar value must never be used for accounting or cap decisions.
 
 ### 3.4 ProviderAdapter
 
@@ -210,7 +210,7 @@ CREATE TABLE calls (
     model TEXT,
     tokens_in INTEGER,
     tokens_out INTEGER,
-    cost_usd REAL,
+    cost_microusd INTEGER NOT NULL CHECK (cost_microusd >= 0),
     latency_ms INTEGER,
     session_id TEXT,
     route_tier TEXT DEFAULT 'direct',
@@ -218,7 +218,7 @@ CREATE TABLE calls (
 );
 ```
 
-The implementation should strengthen this baseline with migrations and fields/tables for fixed-point cost, request status, price snapshot, routing reason, context tokens saved, idempotency/correlation IDs, and cap reservations. SQLite write-ahead logging, busy timeouts, foreign keys, and explicit transactions are required for safe multi-process use.
+The implementation should strengthen this baseline with migrations and fields/tables for request status, price snapshot, routing reason, context tokens saved, idempotency/correlation IDs, and cap reservations. SQLite write-ahead logging, busy timeouts, foreign keys, and explicit transactions are required for safe multi-process use.
 
 Time semantics must be explicit: timestamps are stored in UTC; daily/monthly cap windows are calculated in a persisted configured timezone so changing the host timezone cannot unexpectedly reset a budget.
 
@@ -244,7 +244,14 @@ Explicitly selected content has priority but is still subject to the hard model 
 
 ### 3.9 CopilotSpendMonitor (v0.2)
 
-This component is an isolated, read-only integration with documented GitHub billing/usage APIs. It reports premium-request usage alongside, but separately from, Relay's API ledger.
+This component is an isolated, read-only integration with documented GitHub billing/usage APIs. As verified against GitHub's published REST description, premium-request usage endpoints exist for both users and organizations. Actual availability still depends on the account, plan, billing platform, and token permissions; Relay reports unsupported access explicitly and never fills gaps by scraping or estimation. It reports available premium-request usage alongside, but separately from, Relay's API ledger.
+
+Endpoints verified on July 18, 2026:
+
+- `/users/{username}/settings/billing/premium_request/usage`
+- `/organizations/{org}/settings/billing/premium_request/usage`
+
+GitHub APIs and billing eligibility can change. Revalidate these contracts, required permissions, plan coverage, and response semantics against GitHub's official documentation before implementing or releasing v0.2.
 
 It is not a `ProviderAdapter`, cannot submit Copilot prompts, and has no path into request routing. GitHub API failures must not disable Relay's provider usage report.
 
@@ -408,6 +415,8 @@ Metrics and update checks, if ever introduced, are opt-in and outside v0.1–v0.
 ### v0.1 — See + Stop
 
 Build in order: adapter contract → price data → meter/ledger → cap enforcer → config/CLI. The release is complete only when OpenAI and Anthropic pass conformance, the cap-refusal test proves no network call, and a fresh user can reach a first metered call in under five minutes.
+
+Multi-process-safe reservations and reconciliation are part of v0.1, not a post-launch optimization. Correct cap enforcement takes priority over the original three-week estimate; the release schedule may extend rather than ship a documented concurrency hole in the core promise.
 
 ### v0.2 — Shrink + Watch
 

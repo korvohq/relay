@@ -9,6 +9,8 @@ Korvo Relay is a local-first command-line tool for making AI coding costs visibl
 
 ## Why Relay?
 
+Relay grew out of a surprise $3,000 AI coding bill: the cost was visible only after it had already been incurred.
+
 AI coding tools often expose cost only after requests have been made. Relay puts a local control plane in front of supported provider APIs:
 
 - **Visible:** record tokens, latency, route, and cost for every call.
@@ -17,7 +19,7 @@ AI coding tools often expose cost only after requests have been made. Relay puts
 - **Local-first:** keep credentials, usage history, source indexes, and embeddings on the user's machine.
 - **Progressively free:** route suitable requests to a local model in v0.3, with explicit escalation to paid models when needed.
 
-Relay does **not** wrap, proxy, or reverse-engineer the GitHub Copilot client or its private endpoints. The planned v0.2 Copilot spend monitor will only read the user's billing and usage information through legitimate, documented GitHub APIs.
+Relay does **not** wrap, proxy, or reverse-engineer the GitHub Copilot client or its private endpoints. The planned v0.2 Copilot spend monitor will only read the user's billing and premium-request usage through documented GitHub APIs when the user's account and authorization permit it. Unsupported accounts will be reported honestly rather than estimated or scraped.
 
 ## Roadmap
 
