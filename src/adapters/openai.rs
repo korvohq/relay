@@ -1,9 +1,13 @@
+// Copyright 2025-present Snab Limited (trading as Korvo)
+// SPDX-License-Identifier: Apache-2.0
+
 use std::{time::Duration, time::Instant};
 
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use zeroize::Zeroizing;
 
 use crate::{
     adapters::{
@@ -15,7 +19,7 @@ use crate::{
 
 pub struct OpenAiAdapter {
     client: Client,
-    api_key: String,
+    api_key: Zeroizing<String>,
     endpoint: String,
 }
 
@@ -31,7 +35,7 @@ impl OpenAiAdapter {
     pub fn with_endpoint(api_key: String, timeout: Duration, endpoint: String) -> Result<Self> {
         Ok(Self {
             client: Client::builder().timeout(timeout).build()?,
-            api_key,
+            api_key: Zeroizing::new(api_key),
             endpoint,
         })
     }
@@ -92,7 +96,7 @@ impl ProviderAdapter for OpenAiAdapter {
         let response = self
             .client
             .post(&self.endpoint)
-            .bearer_auth(&self.api_key)
+            .bearer_auth(self.api_key.as_str())
             .json(&OpenAiRequest {
                 model: &request.model,
                 messages: &request.messages,

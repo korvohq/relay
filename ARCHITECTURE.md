@@ -28,7 +28,9 @@ Status meanings: ✅ implemented and covered by automated tests · 🟡 implemen
 | Zero-network cap refusal | ✅ | Injected-adapter test proves an at-cap request invokes transport zero times |
 | Ambiguous outcome safety | 🟡 | Dispatch transitions to a durable pending reservation before network I/O; confirmed 4xx responses release it; user-facing reconciliation/list/resolve commands remain |
 | Provider-reported final usage | ✅ | Successful remote responses settle actual input/output usage and snapshot prices into the ledger |
-| Configuration and secure local paths | ✅ | First-run `~/.relay` creation, `0600` files/`0700` directory on Unix, aliases, provider credential environment-variable names, caps, and persisted IANA timezone |
+| Configuration and secure local paths | ✅ | First-run `~/.relay` creation, `0600` files/`0700` directory on Unix, aliases, caps, and persisted IANA timezone |
+| Secure credential onboarding | ✅ | Hidden TTY paste via `relay onboard`, native OS credential vault, metadata-only status, deletion, zeroized adapter buffers, and environment fallback only for CI/headless use |
+| Apache-2.0 licensing and DCO policy | 🟡 | Apache-2.0 `LICENSE`, `NOTICE`, Cargo metadata, SPDX headers, and DCO-only `CONTRIBUTING.md` are complete; install and require the DCO GitHub App check before accepting external contributions |
 | `relay ask` | 🟡 ⛔ | Full pre-flight → reservation → adapter → settlement path implemented; intentionally blocked by unverified bundled price entries until release pricing review |
 | `relay usage` | ✅ | Today/month totals, tokens, per-model costs, and outstanding reserved/pending amount |
 | `relay cap set/show` | ✅ | Explicit config update; no environment-variable cap override |
@@ -119,13 +121,15 @@ Planned commands by release:
 | `relay usage` | v0.1 | Summarize today, month, and model usage |
 | `relay cap set` | v0.1 | Explicitly update configured caps |
 | `relay models` | v0.1 | List aliases, models, prices, and availability |
+| `relay onboard` | v0.1 | Prompt without terminal echo and store provider keys in the OS credential vault |
+| `relay credentials status/delete` | v0.1 | Inspect presence or delete vault entries without displaying key values |
 | `relay index build` | v0.3 | Build or rebuild the local repository index |
 | `relay index status` | v0.3 | Report index location, freshness, and document counts |
 | `relay usage --savings` | v0.3 | Report deflection and estimated avoided spend |
 
 ### 3.2 Configuration
 
-Configuration resolves defaults, aliases, provider credential environment-variable names, caps, and context budgets. Secrets are read from the environment only when an adapter needs them; resolved secret values must not be serialized or included in diagnostics.
+Configuration resolves defaults, aliases, provider credential fallback environment-variable names, caps, and context budgets. For normal interactive use, secrets are retrieved from the OS credential vault only when an adapter needs them. Configured environment variables are a CI/headless fallback and cannot override an existing vault entry. Resolved secret values must not be serialized or included in diagnostics.
 
 Proposed locations:
 
@@ -332,7 +336,7 @@ Retrieval selects candidates, while `ContextBuilder` remains responsible for har
 4. Normalize RelayRequest and reject unsupported options.
 5. Estimate input tokens and bounded maximum output.
 6. Atomically reserve worst-case daily/monthly budget.
-7. Resolve provider credential and dispatch exactly one request.
+7. Resolve the provider credential from the OS vault (or explicit CI/headless environment fallback) and dispatch exactly one request.
 8. Normalize response and validate reported usage.
 9. Calculate actual cost from the request's price snapshot.
 10. Transactionally record the call and settle the reservation.
@@ -362,7 +366,7 @@ Relay favors explicit refusal over uncertain spending.
 | Missing/invalid price | Refuse before provider dispatch |
 | Estimated context over model limit | Refuse or select a valid higher tier under routing rules; never truncate invisibly |
 | Daily or monthly cap exceeded | Refuse before provider dispatch |
-| Missing credential | Refuse before provider dispatch and name only the expected environment variable |
+| Missing credential | Refuse before provider dispatch and direct the user to `relay onboard`; also name the CI/headless fallback variable |
 | Provider timeout before confirmed send | Release reservation and record failure |
 | Ambiguous timeout after send | Preserve a conservative pending/reconciliation record |
 | Missing/malformed provider usage | Record an accounting error and conservatively retain reservation; never report zero cost |

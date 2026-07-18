@@ -1,3 +1,6 @@
+// Copyright 2025-present Snab Limited (trading as Korvo)
+// SPDX-License-Identifier: Apache-2.0
+
 use std::{collections::BTreeMap, fs, path::PathBuf, time::Duration};
 
 use chrono::{DateTime, Utc};

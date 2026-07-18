@@ -1,3 +1,6 @@
+// Copyright 2025-present Snab Limited (trading as Korvo)
+// SPDX-License-Identifier: Apache-2.0
+
 mod anthropic;
 mod openai;
 

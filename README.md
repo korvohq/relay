@@ -56,6 +56,37 @@ api_key_env = "OPENAI_API_KEY"
 api_key_env = "ANTHROPIC_API_KEY"
 ```
 
+### Secure credential onboarding
+
+Do not put API keys in `~/.zshrc` or `relay.toml`. Build Relay and run the one-time onboarding helper:
+
+```bash
+./scripts/onboard.sh
+```
+
+To configure only one provider:
+
+```bash
+./scripts/onboard.sh --provider openai
+./scripts/onboard.sh --provider anthropic
+```
+
+The prompt disables terminal echo while you paste each key. Relay stores the key in the operating system credential vault (macOS Keychain, Windows Credential Manager, or Linux Secret Service). It does not place the key in command arguments, shell history, configuration, logs, or SQLite.
+
+Inspect configuration without displaying key values:
+
+```bash
+./target/release/relay credentials status
+```
+
+Delete a stored credential:
+
+```bash
+./target/release/relay credentials delete openai
+```
+
+Relay checks the OS vault first. The configured `api_key_env` variable is retained only as a fallback for CI or headless environments; it cannot override an existing vault entry.
+
 The implemented v0.1 commands are:
 
 ```console
@@ -75,7 +106,7 @@ relay index status
 relay usage --savings
 ```
 
-Provider credentials will be read from configured environment variables and will never be written to Relay's configuration or ledger.
+Provider credentials are read from the OS vault for normal interactive use and are never written to Relay's configuration or ledger.
 
 ## Core safety guarantees
 
@@ -106,6 +137,7 @@ Try the local-only commands without provider credentials or network requests:
 cargo run -- models
 cargo run -- cap show
 cargo run -- usage
+cargo run -- credentials status
 ```
 
 The first implementation milestone follows this strict order:
@@ -130,4 +162,4 @@ The v0.1–v0.3 scope is frozen, but APIs may still change until the first relea
 
 Copyright © 2025–present Snab Limited (trading as Korvo).
 
-Korvo Relay is free and open-source software licensed under the [GNU Affero General Public License v3.0](LICENSE).
+Korvo Relay is free and open-source software licensed under the [Apache License 2.0](LICENSE). Contributions are accepted under the Developer Certificate of Origin — see [CONTRIBUTING.md](CONTRIBUTING.md).

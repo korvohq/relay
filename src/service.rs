@@ -1,3 +1,6 @@
+// Copyright 2025-present Snab Limited (trading as Korvo)
+// SPDX-License-Identifier: Apache-2.0
+
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -6,6 +9,7 @@ use uuid::Uuid;
 use crate::{
     adapters::{ProviderAdapter, adapter_for},
     config::{AppPaths, Config},
+    credentials::{NativeCredentialStore, SharedCredentialStore},
     error::{RelayError, Result},
     ledger::{CallRecord, Ledger, Period, UsageSummary},
     pricing::{PriceCatalog, PriceEntry},
@@ -19,6 +23,7 @@ pub struct RelayService {
     pub config: Config,
     pub prices: PriceCatalog,
     pub ledger: Ledger,
+    pub credentials: SharedCredentialStore,
 }
 
 pub struct CompletedCall {
@@ -30,6 +35,13 @@ pub struct CompletedCall {
 
 impl RelayService {
     pub fn load(paths: AppPaths) -> Result<Self> {
+        Self::load_with_credentials(paths, NativeCredentialStore::shared())
+    }
+
+    pub fn load_with_credentials(
+        paths: AppPaths,
+        credentials: SharedCredentialStore,
+    ) -> Result<Self> {
         let config = Config::load_or_create(&paths)?;
         let prices = PriceCatalog::load(&paths.prices)?;
         let ledger = Ledger::open(paths.ledger.clone())?;
@@ -38,6 +50,7 @@ impl RelayService {
             config,
             prices,
             ledger,
+            credentials,
         })
     }
 
@@ -51,7 +64,9 @@ impl RelayService {
         let canonical_model = self.config.resolve_model(requested_model, think)?;
         let provider = split_model(&canonical_model)?.0.to_owned();
         let price = self.prices.get_verified(&canonical_model)?;
-        let api_key = self.config.credential(&provider)?;
+        let api_key = self
+            .config
+            .credential(&provider, self.credentials.as_ref())?;
         let adapter = adapter_for(&provider, api_key)?;
         let request = RelayRequest {
             messages: vec![Message::user(prompt)],
@@ -262,6 +277,7 @@ mod tests {
     use super::*;
     use crate::{
         config::{CapsConfig, ProviderConfig},
+        credentials::test_support::MemoryCredentialStore,
         pricing::PriceEntry,
         request::{Capability, TokenEstimate, Usage},
     };
@@ -326,12 +342,14 @@ mod tests {
         let prices =
             PriceCatalog::from_entries(BTreeMap::from([("test:model".into(), price)])).unwrap();
         let ledger = Ledger::open(paths.ledger.clone()).unwrap();
+        let credentials = Arc::new(MemoryCredentialStore::default());
         (
             RelayService {
                 paths,
                 config,
                 prices,
                 ledger,
+                credentials,
             },
             temporary,
         )

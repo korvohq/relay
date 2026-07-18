@@ -1,3 +1,6 @@
+// Copyright 2025-present Snab Limited (trading as Korvo)
+// SPDX-License-Identifier: Apache-2.0
+
 use std::{
     collections::BTreeMap,
     fs,
@@ -8,6 +11,7 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    credentials::{CredentialStore, validate_provider, validate_secret},
     error::{RelayError, Result},
     pricing::usd_to_microusd,
 };
@@ -110,6 +114,7 @@ impl Config {
             ));
         }
         for (provider, config) in &self.providers {
+            validate_provider(provider)?;
             if config.api_key_env.trim().is_empty() {
                 return Err(RelayError::Config(format!(
                     "providers.{provider}.api_key_env must not be empty"
@@ -148,17 +153,43 @@ impl Config {
             .ok_or_else(|| RelayError::UnknownModel(name.to_owned()))
     }
 
-    pub fn credential(&self, provider: &str) -> Result<String> {
+    pub fn credential(&self, provider: &str, store: &dyn CredentialStore) -> Result<String> {
         let variable = self
             .providers
             .get(provider)
             .ok_or_else(|| RelayError::UnsupportedProvider(provider.to_owned()))?
             .api_key_env
             .trim();
-        std::env::var(variable)
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| RelayError::MissingCredential(variable.to_owned()))
+        match store.get(provider) {
+            Ok(Some(secret)) => {
+                validate_secret(&secret)?;
+                return Ok(secret);
+            }
+            Ok(None) => {}
+            Err(store_error) => {
+                if let Some(secret) = environment_credential(variable)? {
+                    return Ok(secret);
+                }
+                return Err(store_error);
+            }
+        }
+        environment_credential(variable)?.ok_or_else(|| RelayError::MissingCredential {
+            provider: provider.to_owned(),
+            environment_variable: variable.to_owned(),
+        })
+    }
+
+    pub fn credential_environment_variable(&self, provider: &str) -> Result<&str> {
+        Ok(self
+            .providers
+            .get(provider)
+            .ok_or_else(|| RelayError::UnsupportedProvider(provider.to_owned()))?
+            .api_key_env
+            .trim())
+    }
+
+    pub fn providers(&self) -> impl Iterator<Item = &str> {
+        self.providers.keys().map(String::as_str)
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -169,6 +200,16 @@ impl Config {
         fs::rename(temporary, path)?;
         Ok(())
     }
+}
+
+fn environment_credential(variable: &str) -> Result<Option<String>> {
+    let credential = std::env::var(variable)
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    if let Some(secret) = credential.as_deref() {
+        validate_secret(secret)?;
+    }
+    Ok(credential)
 }
 
 fn create_private_file_if_missing(path: &Path, contents: &str) -> Result<()> {
@@ -240,6 +281,7 @@ mod tests {
     use tempfile::tempdir;
 
     use super::*;
+    use crate::credentials::{CredentialStore, test_support::MemoryCredentialStore};
 
     #[test]
     fn first_run_creates_local_files_and_loads_defaults() {
@@ -271,5 +313,16 @@ mod tests {
             .replace("\"50.00\"", "50.00");
         let config: Config = toml::from_str(&config).unwrap();
         assert_eq!(config.cap_limits().unwrap().monthly_microusd, 50_000_000);
+    }
+
+    #[test]
+    fn credential_is_loaded_from_in_memory_vault() {
+        let config: Config = toml::from_str(DEFAULT_CONFIG).unwrap();
+        let store = MemoryCredentialStore::default();
+        store.set("openai", "vault-test-secret").unwrap();
+        assert_eq!(
+            config.credential("openai", &store).unwrap(),
+            "vault-test-secret"
+        );
     }
 }

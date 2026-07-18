@@ -1,3 +1,6 @@
+// Copyright 2025-present Snab Limited (trading as Korvo)
+// SPDX-License-Identifier: Apache-2.0
+
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, RelayError>;
@@ -31,8 +34,16 @@ pub enum RelayError {
     #[error("unsupported provider '{0}'")]
     UnsupportedProvider(String),
 
-    #[error("missing provider credential; set environment variable {0}")]
-    MissingCredential(String),
+    #[error(
+        "missing credential for provider '{provider}'; run 'relay onboard --provider {provider}' or set {environment_variable} for CI/headless use"
+    )]
+    MissingCredential {
+        provider: String,
+        environment_variable: String,
+    },
+
+    #[error("secure credential store error: {0}")]
+    CredentialStore(String),
 
     #[error("invalid price entry for '{model}': {reason}")]
     InvalidPrice { model: String, reason: String },
